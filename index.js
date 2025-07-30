@@ -17,10 +17,20 @@ app.use(express.static(path.join(__dirname, "public")));
 const authRoute = require("./routes/auth_route.js");
 const rentalRoute = require("./routes/rental_route.js");
 const bannerRoute = require("./routes/banner_route.js");
+const eventCategoryRoute = require("./routes/event_category_route.js");
+const areaRoute = require("./routes/area_route.js");
+const vendorRoute = require("./routes/vendor_route.js");
+const boothRoute = require("./routes/booth_route.js");
+const eventRoute = require("./routes/event_route.js");
 
 app.use(authRoute);
 app.use(rentalRoute);
 app.use(bannerRoute);
+app.use(eventCategoryRoute);
+app.use(areaRoute);
+app.use(vendorRoute);
+app.use(boothRoute);
+app.use(eventRoute);
 
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS

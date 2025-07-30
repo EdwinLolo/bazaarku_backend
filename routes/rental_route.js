@@ -2,6 +2,10 @@ const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/index.js");
 const {
+  controller: rentalProductsController,
+  upload,
+} = require("../controllers/rental_products_controller");
+const {
   authenticate,
   requireAdmin,
   requireVendor,
@@ -35,21 +39,27 @@ router.delete("/rentals/:id", controller.rental.deleteRental);
 // ---------------------------
 
 // Rental Products Routes
-router.get("/rental-products", controller.rentalProducts.getAllRentalProducts);
+router.get("/rental-products", rentalProductsController.getAllRentalProducts);
 router.get(
   "/rental-products/:id",
-  controller.rentalProducts.getRentalProductById
+  rentalProductsController.getRentalProductById
 );
 
 // Protected routes (Vendor or Admin)
-router.post("/rental-products", controller.rentalProducts.createRentalProduct);
+router.post(
+  "/rental-products",
+  upload.single("product_image"), // 'product_image' is the field name for file upload
+  rentalProductsController.createRentalProduct
+);
+
 router.put(
   "/rental-products/:id",
-  controller.rentalProducts.updateRentalProduct
+  upload.single("product_image"),
+  rentalProductsController.updateRentalProduct
 );
 router.delete(
   "/rental-products/:id",
-  controller.rentalProducts.deleteRentalProduct
+  rentalProductsController.deleteRentalProduct
 );
 
 module.exports = router;

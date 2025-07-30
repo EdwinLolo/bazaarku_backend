@@ -5,12 +5,35 @@ const cors = require("cors");
 const path = require("path");
 
 dotenv.config();
-
 const app = express();
 
-// middleware
+// CORS configuration - MUST BE BEFORE ROUTES
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : []; // Add fallback
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, etc.)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS not allowed for origin: ${origin}`));
+    }
+  },
+  credentials: true, // Allow credentials (cookies, authorization headers)
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Explicitly allow methods
+  allowedHeaders: ["Content-Type", "Authorization"], // Allow these headers
+};
+
+// Apply CORS BEFORE other middleware and routes
+app.use(cors(corsOptions));
+
+// Basic middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
 
 // Route imports
@@ -23,6 +46,7 @@ const vendorRoute = require("./routes/vendor_route.js");
 const boothRoute = require("./routes/booth_route.js");
 const eventRoute = require("./routes/event_route.js");
 
+// Apply routes AFTER CORS
 app.use(authRoute);
 app.use(rentalRoute);
 app.use(bannerRoute);
@@ -32,25 +56,7 @@ app.use(vendorRoute);
 app.use(boothRoute);
 app.use(eventRoute);
 
-// CORS configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",")
-  : [];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS not allowed for origin: ${origin}`));
-    }
-  },
-};
-
-app.use(cors(corsOptions));
-
-// Test database connection (optional for serverless)
+// Test database connection
 const testConnection = async () => {
   try {
     const { data, error } = await supabase.from("area").select("*").limit(1);
@@ -63,10 +69,9 @@ const testConnection = async () => {
     console.log("Connection failed:", error.message);
   }
 };
-
 testConnection();
 
-// Routes
+// Basic routes
 app.get("/api/hello", (req, res) => {
   res.json({ message: "Hello World" });
 });
@@ -87,5 +92,6 @@ if (require.main === module) {
   const PORT = process.env.PORT || 8080;
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
   });
 }

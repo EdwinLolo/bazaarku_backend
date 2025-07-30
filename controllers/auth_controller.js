@@ -78,7 +78,11 @@ controller.login = async (req, res) => {
       .eq("id", authData.user.id)
       .single();
 
-    res.json({
+    console.log("User profile data:", profile);
+    console.log("User ID:", authData.user.id);
+    console.log("Session token:", authData.session.access_token);
+
+    res.status(200).json({
       user: authData.user,
       user_id: authData.user.id,
       profile: profile,

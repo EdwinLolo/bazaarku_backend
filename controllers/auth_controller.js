@@ -22,11 +22,11 @@ controller.signup = async (req, res) => {
     // Create user profile if user was created successfully
     if (authData.user) {
       const { data: profileData, error: profileError } = await supabase
-        .from("User")
+        .from("user")
         .insert({
           id: authData.user.id,
           email: email,
-          password: password, // Note: Storing password in plain text is not recommended
+          //   password: null, // Note: Storing password in plain text is not recommended
           role: "user", // Default role
           first_name: first_name,
           last_name: last_name,
@@ -73,7 +73,7 @@ controller.login = async (req, res) => {
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase
-      .from("User")
+      .from("user")
       .select("*")
       .eq("id", authData.user.id)
       .single();
@@ -159,7 +159,7 @@ controller.logout = async (req, res) => {
 
 controller.GetAdminAllUsers = async (req, res) => {
   try {
-    const { data, error } = await supabase.from("User").select("*");
+    const { data, error } = await supabase.from("user").select("*");
 
     if (error) throw error;
     res.json(data);
@@ -168,192 +168,232 @@ controller.GetAdminAllUsers = async (req, res) => {
   }
 };
 
-// controller.AdminChangeUserRole = async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-//     const { role, grade, school_name, name } = req.body;
+controller.AdminChangeUserRole = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role, first_name, last_name } = req.body;
 
-//     // Validate required fields
-//     if (!role) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Role is required",
-//       });
-//     }
+    // Validate required fields
+    if (!role) {
+      return res.status(400).json({
+        success: false,
+        message: "Role is required",
+      });
+    }
 
-//     // Validate role values (adjust based on your allowed roles)
-//     const allowedRoles = ["admin", "teacher", "student", "user"]; // Add your allowed roles
-//     if (!allowedRoles.includes(role)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid role specified",
-//       });
-//     }
+    // Validate role values (adjust based on your allowed roles)
+    const allowedRoles = ["admin", "vendor", "user"]; // Add your allowed roles
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role specified",
+      });
+    }
 
-//     // Check if user exists first
-//     const { data: existingUser, error: fetchError } = await supabase
-//       .from("profiles")
-//       .select("*")
-//       .eq("user_id", userId)
-//       .single();
+    // Check if user exists first
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("user")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
-//     if (fetchError || !existingUser) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User not found",
-//       });
-//     }
+    if (fetchError || !existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
 
-//     // Prepare update data
-//     const updateData = { role };
+    // Prepare update data
+    const updateData = { role };
 
-//     // Only include grade and school_name if they are provided
-//     if (grade !== undefined) {
-//       updateData.grade = grade;
-//     }
-//     if (school_name !== undefined) {
-//       switch (school_name) {
-//         case 1:
-//           updateData.school_name = "SD 1";
-//           break;
-//         case 2:
-//           updateData.school_name = "SD 2";
-//           break;
-//         case 3:
-//           updateData.school_name = "SD 3";
-//           break;
-//         default:
-//           updateData.school_name = "Unknown School";
-//       }
-//     }
-//     if (name !== undefined) {
-//       updateData.name = name;
-//     }
+    if (first_name !== undefined) {
+      updateData.first_name = first_name;
+    }
 
-//     // Update user role and other fields
-//     const { data: updatedUser, error: updateError } = await supabase
-//       .from("profiles")
-//       .update(updateData)
-//       .eq("user_id", userId)
-//       .select()
-//       .single();
+    if (last_name !== undefined) {
+      updateData.last_name = first_name;
+    }
 
-//     if (updateError) {
-//       console.error("Supabase update error:", updateError);
-//       return res.status(500).json({
-//         success: false,
-//         message: "Failed to update user role",
-//         error: updateError.message,
-//       });
-//     }
+    // Update user role and other fields
+    const { data: updatedUser, error: updateError } = await supabase
+      .from("user")
+      .update(updateData)
+      .eq("id", userId)
+      .select()
+      .single();
 
-//     // Return success response
-//     res.status(200).json({
-//       success: true,
-//       message: "User role updated successfully",
-//       data: {
-//         email: updatedUser.email,
-//         name: updatedUser.name,
-//         role: updatedUser.role,
-//         grade: updatedUser.grade,
-//         school_name: updatedUser.school_name,
-//         user_id: updatedUser.user_id,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("AdminChangeUserRole error:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//       error: error.message,
-//     });
-//   }
-// };
+    if (updateError) {
+      console.error("Supabase update error:", updateError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update user role",
+        error: updateError.message,
+      });
+    }
 
-// controller.AdminDeleteUser = async (req, res) => {
-//   try {
-//     const { userId } = req.params;
-//     const adminUser = req.user; // From authenticate middleware
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: "User role updated successfully",
+      data: {
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+      },
+    });
+  } catch (error) {
+    console.error("AdminChangeUserRole error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
-//     // Prevent admin from deleting themselves
-//     if (userId === adminUser.id) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Cannot delete your own account",
-//       });
-//     }
+controller.AdminDeleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminUser = req.user; // From authenticate middleware
 
-//     // FIRST: Check if user exists in profiles (before any deletion)
-//     const { data: existingUser, error: fetchError } = await supabase
-//       .from("profiles")
-//       .select("*")
-//       .eq("user_id", userId)
-//       .single();
+    // Validate userId
+    if (!userId || userId.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Valid user ID is required",
+      });
+    }
 
-//     if (fetchError || !existingUser) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "User not found in profiles",
-//       });
-//     }
+    // Prevent admin from deleting themselves
+    if (userId === adminUser.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot delete your own account",
+      });
+    }
 
-//     // SECOND: Check if auth user exists
-//     const { data: authUser, error: authFetchError } =
-//       await supabase.auth.admin.getUserById(userId);
+    // FIRST: Check if user exists in profiles
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("user")
+      .select("*")
+      .eq("id", userId)
+      .single();
 
-//     if (authFetchError || !authUser.user) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Auth user not found",
-//         error: authFetchError?.message,
-//       });
-//     }
+    if (fetchError || !existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found in database",
+      });
+    }
 
-//     // THIRD: Delete the auth user
-//     const { error: authDeleteError } = await supabase.auth.admin.deleteUser(
-//       userId
-//     );
+    console.log(
+      `Admin ${adminUser.email} attempting to delete user: ${existingUser.email}`
+    );
 
-//     if (authDeleteError) {
-//       console.error("Auth delete error:", authDeleteError);
-//       return res.status(500).json({
-//         success: false,
-//         message: "Failed to delete auth user",
-//         error: authDeleteError.message,
-//       });
-//     }
+    // SECOND: Check if auth user exists (but don't fail if it doesn't)
+    let authUserExists = false;
+    try {
+      const { data: authUser, error: authFetchError } =
+        await supabase.auth.admin.getUserById(userId);
 
-//     // FOURTH: Delete user profile
-//     const { error: deleteError } = await supabase
-//       .from("profiles")
-//       .delete()
-//       .eq("user_id", userId);
+      if (!authFetchError && authUser?.user) {
+        authUserExists = true;
+        console.log("Auth user found, will delete from both auth and profile");
+      } else {
+        console.log("Auth user not found, will only delete from profile");
+      }
+    } catch (authError) {
+      console.log("Error checking auth user:", authError.message);
+      // Continue with profile deletion even if auth check fails
+    }
 
-//     if (deleteError) {
-//       console.error("Supabase delete error:", deleteError);
-//       // Note: Auth user is already deleted, but profile deletion failed
-//       return res.status(500).json({
-//         success: false,
-//         message: "Auth user deleted but failed to delete profile",
-//         error: deleteError.message,
-//       });
-//     }
+    // THIRD: Delete from auth if exists
+    if (authUserExists) {
+      try {
+        const { error: authDeleteError } = await supabase.auth.admin.deleteUser(
+          userId
+        );
 
-//     res.status(200).json({
-//       success: true,
-//       message: "User deleted successfully",
-//       deletedUserId: userId,
-//       deletedUserEmail: existingUser.email,
-//     });
-//   } catch (error) {
-//     console.error("AdminDeleteUser error:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal server error",
-//       error: error.message,
-//     });
-//   }
-// };
+        if (authDeleteError) {
+          console.error("Auth delete error:", authDeleteError);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to delete user from authentication system",
+            error: authDeleteError.message,
+          });
+        }
+        console.log("Successfully deleted from auth");
+      } catch (authError) {
+        console.error("Unexpected auth delete error:", authError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to delete user from authentication system",
+          error: authError.message,
+        });
+      }
+    }
+
+    // FOURTH: Delete user profile
+    const { error: deleteError } = await supabase
+      .from("user")
+      .delete()
+      .eq("id", userId);
+
+    if (deleteError) {
+      console.error("Profile delete error:", deleteError);
+      return res.status(500).json({
+        success: false,
+        message: authUserExists
+          ? "Auth user deleted but failed to delete profile"
+          : "Failed to delete user profile",
+        error: deleteError.message,
+      });
+    }
+
+    // FIFTH: Clean up related data (optional)
+    try {
+      // Delete related vendor data if user was a vendor
+      if (existingUser.role === "vendor") {
+        const { error: vendorDeleteError } = await supabase
+          .from("vendor")
+          .delete()
+          .eq("user_id", userId);
+
+        if (vendorDeleteError) {
+          console.error("Vendor cleanup error:", vendorDeleteError);
+          // Don't fail the request, just log the error
+        }
+      }
+    } catch (cleanupError) {
+      console.error("Cleanup error:", cleanupError);
+      // Don't fail the request for cleanup errors
+    }
+
+    console.log(`Successfully deleted user: ${existingUser.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+      data: {
+        deletedUserId: userId,
+        deletedUserEmail: existingUser.email,
+        deletedFromAuth: authUserExists,
+        deletedFromProfile: true,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("AdminDeleteUser error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
 controller.testingauth = (req, res) => {
   res.json({ message: "Testing auth route" });

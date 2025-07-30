@@ -15,8 +15,10 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // Route imports
 const authRoute = require("./routes/auth_route.js");
+const rentalRoute = require("./routes/rental_route.js");
 
 app.use(authRoute);
+app.use(rentalRoute);
 
 // CORS configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS

@@ -22,7 +22,7 @@ async function authenticate(req, res, next) {
 
     // Get user profile with role
     const { data: profile, error: profileError } = await supabase
-      .from("User")
+      .from("user")
       .select("*")
       .eq("id", userData.user.id)
       .single();
@@ -72,8 +72,8 @@ function authorize(roles = []) {
 // Specific role middlewares
 const requireAdmin = authorize(["admin"]);
 const requireVendor = authorize(["teacher", "admin"]);
-const requireUser = authorize(["student", "teacher", "admin"]);
-const requireVendorOrAdmin = authorize(["teacher", "admin"]);
+const requireUser = authorize(["user", "vendor", "admin"]);
+const requireVendorOrAdmin = authorize(["vendor", "admin"]);
 
 module.exports = {
   authenticate,

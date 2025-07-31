@@ -8,6 +8,7 @@ const {
   requireVendorOrAdmin,
 } = require("../middleware/auth.js");
 
+router.get("/profile", controller.auth.getProfile);
 // Signup
 router.get("/signup", controller.auth.testingauth);
 router.post("/signup", controller.auth.signup);

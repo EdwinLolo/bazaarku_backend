@@ -160,6 +160,43 @@ controller.logout = async (req, res) => {
 //     res.status(500).json({ error: "Internal server error" });
 //   }
 // };
+// Add this to your auth controller
+controller.getProfile = async (req, res) => {
+  try {
+    // Assuming you have middleware to verify JWT and set req.user
+    const userId = req.user.id;
+
+    const { data: user, error } = await supabase
+      .from("user")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error || !user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
 
 controller.GetAdminAllUsers = async (req, res) => {
   try {

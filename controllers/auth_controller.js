@@ -5,7 +5,7 @@ const controller = {};
 
 controller.signup = async (req, res) => {
   try {
-    const { email, password, first_name, last_name } = req.body;
+    const { email, password, first_name, last_name, role = "user" } = req.body;
     console.log("Signup request body:", req.body);
 
     // Sign up user
@@ -27,7 +27,7 @@ controller.signup = async (req, res) => {
           id: authData.user.id,
           email: email,
           //   password: null, // Note: Storing password in plain text is not recommended
-          role: "user", // Default role
+          role: role, // Default role
           first_name: first_name,
           last_name: last_name,
         })
@@ -179,6 +179,7 @@ controller.AdminChangeUserRole = async (req, res) => {
 
     // Validate required fields
     if (!role) {
+      console.error("Role is required for changing user role");
       return res.status(400).json({
         success: false,
         message: "Role is required",
@@ -188,6 +189,7 @@ controller.AdminChangeUserRole = async (req, res) => {
     // Validate role values (adjust based on your allowed roles)
     const allowedRoles = ["admin", "vendor", "user"]; // Add your allowed roles
     if (!allowedRoles.includes(role)) {
+      console.error("Invalid role specified:", role);
       return res.status(400).json({
         success: false,
         message: "Invalid role specified",
@@ -202,6 +204,7 @@ controller.AdminChangeUserRole = async (req, res) => {
       .single();
 
     if (fetchError || !existingUser) {
+      console.error("User not found:", fetchError);
       return res.status(404).json({
         success: false,
         message: "User not found",
@@ -216,7 +219,7 @@ controller.AdminChangeUserRole = async (req, res) => {
     }
 
     if (last_name !== undefined) {
-      updateData.last_name = first_name;
+      updateData.last_name = last_name;
     }
 
     // Update user role and other fields
@@ -237,6 +240,9 @@ controller.AdminChangeUserRole = async (req, res) => {
     }
 
     // Return success response
+    console.log(
+      `User role updated successfully: ${updatedUser.email} is now ${updatedUser.role}`
+    );
     res.status(200).json({
       success: true,
       message: "User role updated successfully",

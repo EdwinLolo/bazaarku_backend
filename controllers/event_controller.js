@@ -353,12 +353,12 @@ controller.getAllEvents = async (req, res) => {
     // Validate sort parameters
     const allowedSortBy = ["id", "name", "price", "start_date", "end_date"];
     const allowedSortOrder = ["asc", "desc"];
-
     const sortBy = allowedSortBy.includes(sort_by) ? sort_by : "start_date";
     const sortOrder = allowedSortOrder.includes(sort_order)
       ? sort_order
       : "asc";
 
+    // Get events with related data including booths
     let query = supabase
       .from("event")
       .select(
@@ -367,7 +367,13 @@ controller.getAllEvents = async (req, res) => {
         event_category:event_category_id (id, name),
         area:area_id (id, name),
         vendor:vendor_id (id, name),
-        booth (count)
+        booth!booth_event_id_fkey (
+          id,
+          name,
+          phone,
+          desc,
+          is_acc
+        )
       `,
         { count: "exact" }
       )
@@ -380,35 +386,27 @@ controller.getAllEvents = async (req, res) => {
         `name.ilike.%${search}%,description.ilike.%${search}%,location.ilike.%${search}%`
       );
     }
-
     if (category) {
       query = query.ilike("category", `%${category}%`);
     }
-
     if (event_category_id) {
       query = query.eq("event_category_id", event_category_id);
     }
-
     if (area_id) {
       query = query.eq("area_id", area_id);
     }
-
     if (vendor_id) {
       query = query.eq("vendor_id", vendor_id);
     }
-
     if (min_price) {
       query = query.gte("price", parseInt(min_price));
     }
-
     if (max_price) {
       query = query.lte("price", parseInt(max_price));
     }
-
     if (start_date) {
       query = query.gte("start_date", start_date);
     }
-
     if (end_date) {
       query = query.lte("end_date", end_date);
     }
@@ -424,22 +422,39 @@ controller.getAllEvents = async (req, res) => {
       });
     }
 
-    // Process data to add booth count
-    const processedData = data.map((event) => ({
-      ...event,
-      booth_count: event.booth[0]?.count || 0,
-      duration_days:
-        Math.ceil(
-          (new Date(event.end_date) - new Date(event.start_date)) /
-            (1000 * 60 * 60 * 24)
-        ) + 1,
-      status:
-        new Date(event.end_date) < new Date()
-          ? "completed"
-          : new Date(event.start_date) <= new Date()
-          ? "ongoing"
-          : "upcoming",
-    }));
+    // Process data to add booth statistics and other calculated fields
+    const processedData = data.map((event) => {
+      const booths = event.booth || [];
+
+      // Calculate booth statistics
+      const boothStats = {
+        total: booths.length,
+        pending: booths.filter((b) => b.is_acc === "PENDING").length,
+        approved: booths.filter((b) => b.is_acc === "APPROVED").length,
+        rejected: booths.filter((b) => b.is_acc === "REJECTED").length,
+      };
+
+      return {
+        ...event,
+        booth: {
+          count: booths.length,
+          statistics: boothStats,
+          applications: booths, // All booth applications
+        },
+        booth_count: booths.length, // Keep for backward compatibility
+        duration_days:
+          Math.ceil(
+            (new Date(event.end_date) - new Date(event.start_date)) /
+              (1000 * 60 * 60 * 24)
+          ) + 1,
+        status:
+          new Date(event.end_date) < new Date()
+            ? "completed"
+            : new Date(event.start_date) <= new Date()
+            ? "ongoing"
+            : "upcoming",
+      };
+    });
 
     res.json({
       success: true,

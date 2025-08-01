@@ -179,7 +179,7 @@ controller.getEventCategoryWithCount = async (req, res) => {
       .select(
         `
         *,
-        event:event_category_id (count)
+        event:id (count)
       `
       )
       .eq("id", id)
@@ -217,7 +217,7 @@ controller.getAllCategoriesWithCount = async (req, res) => {
       .select(
         `
         *,
-        event:event_category_id (count)
+        event:id (count)
       `
       )
       .order("name", { ascending: true });

@@ -425,10 +425,15 @@ controller.updateBooth = async (req, res) => {
 controller.updateBoothStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { is_acc, admin_notes } = req.body;
+    const { is_acc } = req.body;
 
-    // Validate ID
+    console.log("=== UPDATE BOOTH STATUS DEBUG ===");
+    console.log("Booth ID:", id);
+    console.log("New status:", is_acc);
+
+    // Validate booth ID
     if (!id || isNaN(parseInt(id))) {
+      console.error("Invalid booth ID:", id);
       return res.status(400).json({
         success: false,
         message: "Valid booth ID is required",
@@ -436,12 +441,12 @@ controller.updateBoothStatus = async (req, res) => {
     }
 
     // Validate status
-    const allowedStatus = ["PENDING", "ACCEPT", "REJECT"];
-    if (!is_acc || !allowedStatus.includes(is_acc.toUpperCase())) {
+    const allowedStatuses = ["PENDING", "APPROVED", "REJECTED"];
+    if (!is_acc || !allowedStatuses.includes(is_acc.toUpperCase())) {
+      console.error("Invalid status:", is_acc);
       return res.status(400).json({
         success: false,
-        message: "Valid status is required (PENDING, ACCEPT, REJECT)",
-        allowed_status: allowedStatus,
+        message: "Status must be one of: PENDING, APPROVED, REJECTED",
       });
     }
 
@@ -453,36 +458,25 @@ controller.updateBoothStatus = async (req, res) => {
       .single();
 
     if (fetchError || !existingBooth) {
+      console.log("Booth not found:", fetchError);
       return res.status(404).json({
         success: false,
-        message: "Booth not found",
+        message: "Booth application not found",
       });
     }
 
+    console.log("Existing booth:", existingBooth);
+
     // Update booth status
-    const updateData = {
-      is_acc: is_acc.toUpperCase(),
-    };
-
-    // Add admin notes if provided (you might want to add this column to your table)
-    if (admin_notes) {
-      updateData.admin_notes = admin_notes.trim();
-    }
-
     const { data, error } = await supabase
       .from("booth")
-      .update(updateData)
+      .update({ is_acc: is_acc.toUpperCase() })
       .eq("id", id)
-      .select(
-        `
-        *,
-        event:event_id (id, name, start_date, end_date, location)
-      `
-      )
+      .select("*")
       .single();
 
     if (error) {
-      console.error("Update booth status error:", error);
+      console.error("Update booth error:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to update booth status",
@@ -490,23 +484,12 @@ controller.updateBoothStatus = async (req, res) => {
       });
     }
 
-    // Log admin action
-    console.log(
-      `Admin ${req.user?.email} updated booth ${id} status from ${
-        existingBooth.is_acc
-      } to ${is_acc.toUpperCase()}`
-    );
+    console.log("Updated booth:", data);
 
     res.json({
       success: true,
-      message: `Booth application ${is_acc.toLowerCase()}ed successfully`,
+      message: "Booth status updated successfully",
       data,
-      status_change: {
-        from: existingBooth.is_acc,
-        to: is_acc.toUpperCase(),
-        updated_by: req.user?.email,
-        updated_at: new Date().toISOString(),
-      },
     });
   } catch (error) {
     console.error("Update booth status error:", error);

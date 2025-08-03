@@ -354,24 +354,30 @@ controller.getVendorById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    console.log("Fetching vendor by ID:", id);
+
     const { data, error } = await supabase
       .from("vendor")
       .select(
         `
         *,
         user:user_id (id, first_name, last_name, email, role),
-        event:vendor_id (
+        event (
           id,
           name,
           price,
           start_date,
           end_date,
-          location
+          location,
+          category
         )
       `
       )
       .eq("id", id)
       .single();
+
+    console.log("Vendor data fetched:", data);
+    console.log("Error fetching vendor:", error);
 
     if (error || !data) {
       return res.status(404).json({

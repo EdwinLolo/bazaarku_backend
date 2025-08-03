@@ -156,13 +156,6 @@ controller.createVendor = async (req, res) => {
       });
     }
 
-    if (user.role !== "vendor" && user.role !== "admin") {
-      return res.status(400).json({
-        success: false,
-        message: "User must have vendor or admin role",
-      });
-    }
-
     console.log("=== FILE VALIDATION ===");
     const hasFiles = !!file; // Changed from files check
     console.log("Has required files:", hasFiles);
@@ -469,13 +462,12 @@ controller.updateVendor = async (req, res) => {
       user_id,
     } = req.body;
 
-    // Changed from req.files to req.file
     const file = req.file;
 
     console.log("=== UPDATE VENDOR DEBUG ===");
     console.log("Vendor ID:", id);
     console.log("Request body:", req.body);
-    console.log("File:", file); // Changed from files
+    console.log("File:", file);
     console.log("Content-Type:", req.headers["content-type"]);
 
     // Check if vendor exists
@@ -532,7 +524,6 @@ controller.updateVendor = async (req, res) => {
             message: "Invalid Instagram username or URL",
           });
         }
-        // Format Instagram
         let formattedInsta = instaStr;
         if (instaStr.includes("instagram.com/")) {
           formattedInsta = instaStr.split("instagram.com/")[1].replace("/", "");
@@ -560,7 +551,6 @@ controller.updateVendor = async (req, res) => {
           });
         }
 
-        // Check if user is already assigned to another vendor
         const { data: existingVendorUser, error: vendorUserError } =
           await supabase
             .from("vendor")
@@ -580,33 +570,13 @@ controller.updateVendor = async (req, res) => {
       }
     }
 
-    // Handle banner removal first
-    if (remove_banner === "true" || remove_banner === true) {
-      console.log("Removing banner...");
-      updateData.banner = null;
-
-      // Delete existing banner from storage
-      if (existingVendor.banner) {
-        try {
-          // Extract filename from URL for deletion
-          const urlParts = existingVendor.banner.split("/");
-          const fileName = urlParts[urlParts.length - 1];
-          const filePath = `vendors/banners/${fileName}`;
-          console.log("Deleting banner:", filePath);
-          await deleteImageFromStorage(filePath);
-        } catch (deleteError) {
-          console.error("Error deleting old banner:", deleteError);
-          // Don't fail the update if deletion fails
-        }
-      }
-    }
-
     let newImageUrl = null;
     let oldImagePath = null;
     let uploadedFilePath = null;
 
-    // Handle new file upload (Changed from files.banner_image to file)
-    if (file && !remove_banner) {
+    // Handle banner updates - FIXED LOGIC
+    if (file) {
+      // New file is being uploaded
       console.log("Processing new file upload for update...");
       console.log("File details:", {
         originalname: file.originalname,
@@ -614,10 +584,7 @@ controller.updateVendor = async (req, res) => {
         size: file.size,
       });
 
-      const uploadResult = await uploadImageToStorage(
-        file, // Changed from files.banner_image[0] to file
-        "vendors/banners"
-      );
+      const uploadResult = await uploadImageToStorage(file, "vendors/banners");
 
       if (!uploadResult.success) {
         console.error("Upload failed:", uploadResult.error);
@@ -628,11 +595,12 @@ controller.updateVendor = async (req, res) => {
         });
       }
 
+      // Set the new banner URL
       updateData.banner = uploadResult.publicUrl;
       newImageUrl = uploadResult.publicUrl;
       uploadedFilePath = uploadResult.filePath;
 
-      // Mark old image for deletion (but don't delete yet)
+      // Mark old image for deletion if it exists
       if (existingVendor.banner) {
         try {
           const urlParts = existingVendor.banner.split("/");
@@ -642,14 +610,33 @@ controller.updateVendor = async (req, res) => {
           console.error("Error parsing old image path:", error);
         }
       }
-    }
-    // Handle banner URL update (if no file upload and no removal)
-    else if (
-      banner !== undefined &&
-      banner.toString().trim() &&
-      !remove_banner &&
-      !file
-    ) {
+    } else if (remove_banner === "true" || remove_banner === true) {
+      // Only remove banner if no new file is being uploaded
+      console.log("Removing banner without replacement...");
+
+      // Check if banner column allows null - if not, require a replacement
+      if (!banner || !banner.toString().trim()) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Banner is required. Please provide a banner URL or upload a new image.",
+        });
+      }
+
+      updateData.banner = banner.toString().trim();
+
+      // Mark old image for deletion
+      if (existingVendor.banner) {
+        try {
+          const urlParts = existingVendor.banner.split("/");
+          const fileName = urlParts[urlParts.length - 1];
+          oldImagePath = `vendors/banners/${fileName}`;
+        } catch (error) {
+          console.error("Error parsing old image path:", error);
+        }
+      }
+    } else if (banner !== undefined && banner.toString().trim()) {
+      // Banner URL is being updated
       const bannerStr = banner.toString().trim();
       if (bannerStr !== existingVendor.banner) {
         console.log("Updating banner URL...");
@@ -819,7 +806,7 @@ controller.deleteVendor = async (req, res) => {
     if (existingVendor.banner) {
       const urlParts = existingVendor.banner.split("/");
       const fileName = urlParts[urlParts.length - 1];
-      const imagePath = `vendor-banners/${fileName}`;
+      const imagePath = `vendors/banners/${fileName}`;
 
       const imageDeleted = await deleteImageFromStorage(imagePath);
       if (!imageDeleted) {

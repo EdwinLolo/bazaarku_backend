@@ -3,7 +3,6 @@ const dotenv = require("dotenv");
 const supabase = require("./db/supabase");
 const cors = require("cors");
 const path = require("path");
-const multer = require("multer");
 
 dotenv.config();
 const app = express();

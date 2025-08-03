@@ -13,6 +13,9 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
+    console.log("=== MULTER FILE FILTER ===");
+    console.log("File received in filter:", file);
+
     // Check if file is an image
     if (file.mimetype.startsWith("image/")) {
       cb(null, true);
@@ -99,7 +102,13 @@ const validateInstagram = (insta) => {
 // CREATE - Add new vendor
 controller.createVendor = async (req, res) => {
   try {
-    const { name, user_id, desc, phone, insta } = req.body;
+    console.log("=== MULTER DEBUG ===");
+    console.log("req.file:", req.file);
+    console.log("req.files:", req.files);
+    console.log("req.body:", req.body);
+    console.log("Content-Type:", req.headers["content-type"]);
+
+    const { name, user_id, desc, phone, insta, location } = req.body;
     const file = req.file;
 
     // Validate required fields
@@ -127,6 +136,12 @@ controller.createVendor = async (req, res) => {
       });
     }
 
+    if (file) {
+      console.log("File received:", file.originalname);
+      console.log("File size:", file.size);
+      console.log("File mimetype:", file.mimetype);
+    }
+
     // Check if user exists and has vendor role
     const { data: user, error: userError } = await supabase
       .from("user")
@@ -148,35 +163,36 @@ controller.createVendor = async (req, res) => {
       });
     }
 
-    // Check if user already has a vendor profile
-    const { data: existingVendor, error: vendorCheckError } = await supabase
-      .from("vendor")
-      .select("id")
-      .eq("user_id", user_id)
-      .single();
+    console.log("=== FILE VALIDATION ===");
+    const hasFiles = !!file; // Changed from files check
+    console.log("Has required files:", hasFiles);
 
-    if (existingVendor) {
-      return res.status(400).json({
-        success: false,
-        message: "User already has a vendor profile",
-        existing_vendor_id: existingVendor.id,
-      });
-    }
-
-    // Handle banner upload
-    let bannerUrl = null;
-    let uploadedFilePath = null;
-
-    if (!file) {
+    if (!hasFiles) {
+      console.log("❌ FILE VALIDATION FAILED");
       return res.status(400).json({
         success: false,
         message: "Banner image is required",
+        debug: {
+          file_received: !!file, // Changed from files check
+        },
       });
     }
 
-    const uploadResult = await uploadImageToStorage(file);
+    // Handle banner - file upload
+    let bannerUrl = null;
+    let uploadedFilePath = null; // Define this variable
+    console.log("Processing file upload...");
+
+    const uploadResult = await uploadImageToStorage(
+      file, // Changed from files.banner_image[0]
+      "vendors/banners"
+    );
 
     if (!uploadResult.success) {
+      console.error("Upload error:", uploadResult.error);
+      if (uploadResult.filePath) {
+        await deleteImageFromStorage(uploadResult.filePath);
+      }
       return res.status(500).json({
         success: false,
         message: "Failed to upload banner image",
@@ -185,10 +201,7 @@ controller.createVendor = async (req, res) => {
     }
 
     bannerUrl = uploadResult.publicUrl;
-    uploadedFilePath = uploadResult.filePath;
-
-    // Generate vendor ID
-    const vendorId = uuidv4();
+    uploadedFilePath = uploadResult.filePath; // Store the file path for cleanup if needed
 
     // Format Instagram (ensure it's stored consistently)
     let formattedInsta = insta;
@@ -198,18 +211,31 @@ controller.createVendor = async (req, res) => {
       formattedInsta = insta.substring(1);
     }
 
+    // Generate UUID for the vendor id
+    const vendorId = uuidv4();
+
+    // Prepare insert data
+    const insertData = {
+      id: vendorId, // Add the generated UUID
+      name: name.trim(),
+      user_id: user_id,
+      desc: desc.trim(),
+      phone: parseInt(phone),
+      insta: formattedInsta,
+      location: location ? location.trim() : null,
+    };
+
+    // Add banner if provided
+    if (bannerUrl) {
+      insertData.banner = bannerUrl;
+    }
+
+    console.log("Insert data:", insertData);
+
     // Insert new vendor
     const { data, error } = await supabase
       .from("vendor")
-      .insert({
-        id: vendorId,
-        name: name.trim(),
-        user_id: user_id,
-        banner: bannerUrl,
-        desc: desc.trim(),
-        phone: parseInt(phone),
-        insta: formattedInsta,
-      })
+      .insert(insertData)
       .select(
         `
         *,
@@ -223,7 +249,6 @@ controller.createVendor = async (req, res) => {
       if (uploadedFilePath) {
         await deleteImageFromStorage(uploadedFilePath);
       }
-
       console.error("Create vendor error:", error);
       return res.status(500).json({
         success: false,
@@ -235,13 +260,22 @@ controller.createVendor = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Vendor created successfully",
-      data: {
-        ...data,
-        file_path: uploadedFilePath,
-      },
+      ...data,
+      file_path: uploadedFilePath,
+      instagram_url: data.insta ? `https://instagram.com/${data.insta}` : null,
     });
   } catch (error) {
     console.error("Create vendor error:", error);
+
+    // Clean up uploaded file if there was an error
+    if (uploadedFilePath) {
+      try {
+        await deleteImageFromStorage(uploadedFilePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up uploaded file:", cleanupError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -424,8 +458,25 @@ controller.getVendorByUserId = async (req, res) => {
 controller.updateVendor = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, desc, phone, insta } = req.body;
+    const {
+      name,
+      desc,
+      phone,
+      insta,
+      location,
+      banner,
+      remove_banner,
+      user_id,
+    } = req.body;
+
+    // Changed from req.files to req.file
     const file = req.file;
+
+    console.log("=== UPDATE VENDOR DEBUG ===");
+    console.log("Vendor ID:", id);
+    console.log("Request body:", req.body);
+    console.log("File:", file); // Changed from files
+    console.log("Content-Type:", req.headers["content-type"]);
 
     // Check if vendor exists
     const { data: existingVendor, error: fetchError } = await supabase
@@ -444,45 +495,132 @@ controller.updateVendor = async (req, res) => {
     // Prepare update data
     const updateData = {};
 
-    if (name !== undefined) updateData.name = name.trim();
-    if (desc !== undefined) updateData.desc = desc.trim();
-
-    if (phone !== undefined) {
-      if (!validatePhone(phone)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid phone number format",
-        });
-      }
-      updateData.phone = parseInt(phone);
+    if (name !== undefined && name.toString().trim()) {
+      updateData.name = name.toString().trim();
     }
 
-    if (insta !== undefined) {
-      if (!validateInstagram(insta)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid Instagram username or URL",
-        });
-      }
+    if (desc !== undefined) {
+      updateData.desc = desc.toString().trim();
+    }
 
-      // Format Instagram
-      let formattedInsta = insta;
-      if (insta.includes("instagram.com/")) {
-        formattedInsta = insta.split("instagram.com/")[1].replace("/", "");
-      } else if (insta.startsWith("@")) {
-        formattedInsta = insta.substring(1);
+    if (location !== undefined) {
+      const locationStr = location ? location.toString().trim() : null;
+      updateData.location = locationStr || null;
+    }
+
+    // Phone validation
+    if (phone !== undefined) {
+      const phoneStr = phone.toString().trim();
+      if (phoneStr) {
+        if (!validatePhone(phoneStr)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid phone number format",
+          });
+        }
+        updateData.phone = parseInt(phoneStr);
       }
-      updateData.insta = formattedInsta;
+    }
+
+    // Instagram validation
+    if (insta !== undefined) {
+      const instaStr = insta.toString().trim();
+      if (instaStr) {
+        if (!validateInstagram(instaStr)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid Instagram username or URL",
+          });
+        }
+        // Format Instagram
+        let formattedInsta = instaStr;
+        if (instaStr.includes("instagram.com/")) {
+          formattedInsta = instaStr.split("instagram.com/")[1].replace("/", "");
+        } else if (instaStr.startsWith("@")) {
+          formattedInsta = instaStr.substring(1);
+        }
+        updateData.insta = formattedInsta;
+      }
+    }
+
+    // User ID validation
+    if (user_id !== undefined) {
+      const userIdStr = user_id.toString().trim();
+      if (userIdStr) {
+        const { data: userExists, error: userError } = await supabase
+          .from("user")
+          .select("id, role")
+          .eq("id", userIdStr)
+          .single();
+
+        if (userError || !userExists) {
+          return res.status(400).json({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        // Check if user is already assigned to another vendor
+        const { data: existingVendorUser, error: vendorUserError } =
+          await supabase
+            .from("vendor")
+            .select("id")
+            .eq("user_id", userIdStr)
+            .neq("id", id)
+            .single();
+
+        if (existingVendorUser && !vendorUserError) {
+          return res.status(400).json({
+            success: false,
+            message: "User is already assigned to another vendor",
+          });
+        }
+
+        updateData.user_id = userIdStr;
+      }
+    }
+
+    // Handle banner removal first
+    if (remove_banner === "true" || remove_banner === true) {
+      console.log("Removing banner...");
+      updateData.banner = null;
+
+      // Delete existing banner from storage
+      if (existingVendor.banner) {
+        try {
+          // Extract filename from URL for deletion
+          const urlParts = existingVendor.banner.split("/");
+          const fileName = urlParts[urlParts.length - 1];
+          const filePath = `vendors/banners/${fileName}`;
+          console.log("Deleting banner:", filePath);
+          await deleteImageFromStorage(filePath);
+        } catch (deleteError) {
+          console.error("Error deleting old banner:", deleteError);
+          // Don't fail the update if deletion fails
+        }
+      }
     }
 
     let newImageUrl = null;
     let oldImagePath = null;
+    let uploadedFilePath = null;
 
-    // Handle image upload if new file provided
-    if (file) {
-      const uploadResult = await uploadImageToStorage(file);
+    // Handle new file upload (Changed from files.banner_image to file)
+    if (file && !remove_banner) {
+      console.log("Processing new file upload for update...");
+      console.log("File details:", {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+      });
+
+      const uploadResult = await uploadImageToStorage(
+        file, // Changed from files.banner_image[0] to file
+        "vendors/banners"
+      );
 
       if (!uploadResult.success) {
+        console.error("Upload failed:", uploadResult.error);
         return res.status(500).json({
           success: false,
           message: "Failed to upload new banner image",
@@ -492,12 +630,44 @@ controller.updateVendor = async (req, res) => {
 
       updateData.banner = uploadResult.publicUrl;
       newImageUrl = uploadResult.publicUrl;
+      uploadedFilePath = uploadResult.filePath;
 
-      // Extract old image path for deletion
+      // Mark old image for deletion (but don't delete yet)
       if (existingVendor.banner) {
-        const urlParts = existingVendor.banner.split("/");
-        const fileName = urlParts[urlParts.length - 1];
-        oldImagePath = `vendor-banners/${fileName}`;
+        try {
+          const urlParts = existingVendor.banner.split("/");
+          const fileName = urlParts[urlParts.length - 1];
+          oldImagePath = `vendors/banners/${fileName}`;
+        } catch (error) {
+          console.error("Error parsing old image path:", error);
+        }
+      }
+    }
+    // Handle banner URL update (if no file upload and no removal)
+    else if (
+      banner !== undefined &&
+      banner.toString().trim() &&
+      !remove_banner &&
+      !file
+    ) {
+      const bannerStr = banner.toString().trim();
+      if (bannerStr !== existingVendor.banner) {
+        console.log("Updating banner URL...");
+        updateData.banner = bannerStr;
+
+        // Mark old image for deletion if it was stored in our storage
+        if (
+          existingVendor.banner &&
+          existingVendor.banner.includes("supabase")
+        ) {
+          try {
+            const urlParts = existingVendor.banner.split("/");
+            const fileName = urlParts[urlParts.length - 1];
+            oldImagePath = `vendors/banners/${fileName}`;
+          } catch (error) {
+            console.error("Error parsing old image path:", error);
+          }
+        }
       }
     }
 
@@ -509,7 +679,9 @@ controller.updateVendor = async (req, res) => {
       });
     }
 
-    // Update vendor
+    console.log("Final update data:", updateData);
+
+    // Update vendor in database
     const { data, error } = await supabase
       .from("vendor")
       .update(updateData)
@@ -523,14 +695,17 @@ controller.updateVendor = async (req, res) => {
       .single();
 
     if (error) {
-      // If update fails and new image was uploaded, delete it
-      if (newImageUrl) {
-        const urlParts = newImageUrl.split("/");
-        const fileName = urlParts[urlParts.length - 1];
-        await deleteImageFromStorage(`vendor-banners/${fileName}`);
+      console.error("Database update error:", error);
+
+      // Clean up uploaded file if database update failed
+      if (uploadedFilePath) {
+        try {
+          await deleteImageFromStorage(uploadedFilePath);
+        } catch (cleanupError) {
+          console.error("Error cleaning up uploaded file:", cleanupError);
+        }
       }
 
-      console.error("Update vendor error:", error);
       return res.status(500).json({
         success: false,
         message: "Failed to update vendor",
@@ -538,21 +713,37 @@ controller.updateVendor = async (req, res) => {
       });
     }
 
-    // Delete old image if new one was uploaded successfully
-    if (oldImagePath && newImageUrl) {
-      await deleteImageFromStorage(oldImagePath);
+    // Delete old image only after successful database update
+    if (oldImagePath && (newImageUrl || remove_banner)) {
+      try {
+        console.log("Deleting old image:", oldImagePath);
+        await deleteImageFromStorage(oldImagePath);
+        console.log("Old image deleted successfully");
+      } catch (deleteError) {
+        console.error("Error deleting old image:", deleteError);
+        // Don't fail the update if old image deletion fails
+      }
     }
 
     res.json({
       success: true,
       message: "Vendor updated successfully",
-      data: {
-        ...data,
-        instagram_url: `https://instagram.com/${data.insta}`,
-      },
+      ...data,
+      instagram_url: data.insta ? `https://instagram.com/${data.insta}` : null,
+      file_path: uploadedFilePath,
     });
   } catch (error) {
     console.error("Update vendor error:", error);
+
+    // Clean up uploaded file if there was an error
+    if (uploadedFilePath) {
+      try {
+        await deleteImageFromStorage(uploadedFilePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up uploaded file:", cleanupError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       message: "Internal server error",

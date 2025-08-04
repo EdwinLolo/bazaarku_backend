@@ -413,20 +413,15 @@ controller.getVendorByUserId = async (req, res) => {
       .from("vendor")
       .select(
         `
-        *,
-        user:user_id (id, first_name, last_name, email, role),
-        event:vendor_id (
-          id,
-          name,
-          price,
-          start_date,
-          end_date,
-          location
-        )
+        id
       `
       )
       .eq("user_id", user_id)
       .single();
+
+    console.log("Fetching vendor by user ID:", user_id);
+    console.log("Vendor data by user ID:", data);
+    console.log("Error fetching vendor by user ID:", error);
 
     if (error || !data) {
       return res.status(404).json({

@@ -1,7 +1,86 @@
 const express = require("express");
 const supabase = require("../db/supabase");
+const multer = require("multer");
+const { v4: uuidv4 } = require("uuid");
 
 const controller = {};
+
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    console.log("=== MULTER FILE FILTER ===");
+    console.log("File received in filter:", file);
+    console.log("Field name:", file.fieldname);
+
+    // Check if file is an image
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"), false);
+    }
+  },
+});
+
+// Helper function to upload image to Supabase Storage
+const uploadImageToStorage = async (file, folder = "rental-category") => {
+  try {
+    // Generate unique filename
+    const fileExt = file.originalname.split(".").pop();
+    const fileName = `${uuidv4()}.${fileExt}`;
+    const filePath = `${folder}/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from("rental-category") // Create this bucket in Supabase
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    // Get public URL
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("rental-category").getPublicUrl(filePath);
+
+    return {
+      success: true,
+      filePath: data.path,
+      publicUrl: publicUrl,
+    };
+  } catch (error) {
+    console.error("Upload error:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+};
+
+// Helper function to delete image from storage
+const deleteImageFromStorage = async (filePath) => {
+  try {
+    const { error } = await supabase.storage
+      .from("rental-category")
+      .remove([filePath]);
+
+    if (error) {
+      console.error("Delete file error:", error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error("Delete file error:", error);
+    return false;
+  }
+};
 
 // controllers/rental_controller.js - Add this method
 controller.getAllRentalsWithProducts = async (req, res) => {
@@ -271,27 +350,70 @@ controller.getRentalSummary = async (req, res) => {
 
 controller.createRental = async (req, res) => {
   try {
-    const { name, banner } = req.body;
+    const { name } = req.body;
+    const file = req.file; // Using req.file for single file upload
+
+    console.log("=== CREATE RENTAL DEBUG ===");
+    console.log("Request body:", req.body);
+    console.log("File:", file);
+    console.log("Content-Type:", req.headers["content-type"]);
 
     // Validate required fields
-    if (!name || !banner) {
+    if (!name) {
       return res.status(400).json({
         success: false,
-        message: "Name and banner are required",
+        message: "Name is required",
       });
     }
+
+    // Prepare insert data
+    const insertData = {
+      name: name.trim(),
+    };
+
+    let bannerUrl = null;
+    let uploadedFilePath = null;
+
+    // Handle banner file upload if present
+    if (file) {
+      console.log("Processing file upload...");
+      console.log("File details:", {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+      });
+
+      const uploadResult = await uploadImageToStorage(file, "rentals/banners");
+
+      if (!uploadResult.success) {
+        console.error("Upload error:", uploadResult.error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload banner image",
+          error: uploadResult.error,
+        });
+      }
+
+      bannerUrl = uploadResult.publicUrl;
+      uploadedFilePath = uploadResult.filePath;
+      insertData.banner = bannerUrl;
+    }
+
+    console.log("Insert data:", insertData);
 
     // Insert new rental
     const { data, error } = await supabase
       .from("rental")
-      .insert({
-        name: name.trim(),
-        banner,
-      })
-      .select()
+      .insert(insertData)
+      .select("*")
       .single();
 
     if (error) {
+      // If database insert fails, delete the uploaded image
+      if (uploadedFilePath) {
+        await deleteImageFromStorage(uploadedFilePath);
+      }
+
       console.error("Create rental error:", error);
       return res.status(500).json({
         success: false,
@@ -304,9 +426,20 @@ controller.createRental = async (req, res) => {
       success: true,
       message: "Rental created successfully",
       data,
+      file_path: uploadedFilePath,
     });
   } catch (error) {
     console.error("Create rental error:", error);
+
+    // Clean up uploaded file if there was an error
+    if (uploadedFilePath) {
+      try {
+        await deleteImageFromStorage(uploadedFilePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up uploaded file:", cleanupError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -405,7 +538,13 @@ controller.getRentalById = async (req, res) => {
 controller.updateRental = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, banner } = req.body;
+    const { name, banner, remove_banner } = req.body;
+    const file = req.file;
+
+    console.log("=== UPDATE RENTAL DEBUG ===");
+    console.log("Rental ID:", id);
+    console.log("Request body:", req.body);
+    console.log("File:", file);
 
     // Check if rental exists
     const { data: existingRental, error: fetchError } = await supabase
@@ -423,8 +562,84 @@ controller.updateRental = async (req, res) => {
 
     // Prepare update data
     const updateData = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (banner !== undefined) updateData.banner = banner;
+
+    if (name !== undefined && name.toString().trim()) {
+      updateData.name = name.toString().trim();
+    }
+
+    let newImageUrl = null;
+    let oldImagePath = null;
+    let uploadedFilePath = null;
+
+    // Handle banner removal
+    if (remove_banner === "true" || remove_banner === true) {
+      updateData.banner = null;
+      if (existingRental.banner) {
+        try {
+          const urlParts = existingRental.banner.split("/");
+          const fileName = urlParts[urlParts.length - 1];
+          oldImagePath = `rentals/banners/${fileName}`;
+        } catch (error) {
+          console.error("Error parsing old image path:", error);
+        }
+      }
+    }
+
+    // Handle new file upload
+    if (file && !remove_banner) {
+      console.log("Processing new file upload for update...");
+
+      const uploadResult = await uploadImageToStorage(file, "rentals/banners");
+
+      if (!uploadResult.success) {
+        console.error("Upload failed:", uploadResult.error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload new banner image",
+          error: uploadResult.error,
+        });
+      }
+
+      updateData.banner = uploadResult.publicUrl;
+      newImageUrl = uploadResult.publicUrl;
+      uploadedFilePath = uploadResult.filePath;
+
+      // Mark old image for deletion if it exists
+      if (existingRental.banner) {
+        try {
+          const urlParts = existingRental.banner.split("/");
+          const fileName = urlParts[urlParts.length - 1];
+          oldImagePath = `rentals/banners/${fileName}`;
+        } catch (error) {
+          console.error("Error parsing old image path:", error);
+        }
+      }
+    } else if (
+      banner !== undefined &&
+      banner.toString().trim() &&
+      !remove_banner &&
+      !file
+    ) {
+      // Handle banner URL update
+      const bannerStr = banner.toString().trim();
+      if (bannerStr !== existingRental.banner) {
+        console.log("Updating banner URL...");
+        updateData.banner = bannerStr;
+
+        if (
+          existingRental.banner &&
+          existingRental.banner.includes("supabase")
+        ) {
+          try {
+            const urlParts = existingRental.banner.split("/");
+            const fileName = urlParts[urlParts.length - 1];
+            oldImagePath = `rentals/banners/${fileName}`;
+          } catch (error) {
+            console.error("Error parsing old image path:", error);
+          }
+        }
+      }
+    }
 
     // Validate at least one field to update
     if (Object.keys(updateData).length === 0) {
@@ -434,16 +649,28 @@ controller.updateRental = async (req, res) => {
       });
     }
 
-    // Update rental
+    console.log("Final update data:", updateData);
+
+    // Update rental in database
     const { data, error } = await supabase
       .from("rental")
       .update(updateData)
       .eq("id", id)
-      .select()
+      .select("*")
       .single();
 
     if (error) {
-      console.error("Update rental error:", error);
+      console.error("Database update error:", error);
+
+      // Clean up uploaded file if database update failed
+      if (uploadedFilePath) {
+        try {
+          await deleteImageFromStorage(uploadedFilePath);
+        } catch (cleanupError) {
+          console.error("Error cleaning up uploaded file:", cleanupError);
+        }
+      }
+
       return res.status(500).json({
         success: false,
         message: "Failed to update rental",
@@ -451,13 +678,36 @@ controller.updateRental = async (req, res) => {
       });
     }
 
+    // Delete old image only after successful database update
+    if (oldImagePath && (newImageUrl || remove_banner)) {
+      try {
+        console.log("Deleting old image:", oldImagePath);
+        await deleteImageFromStorage(oldImagePath);
+        console.log("Old image deleted successfully");
+      } catch (deleteError) {
+        console.error("Error deleting old image:", deleteError);
+        // Don't fail the update if old image deletion fails
+      }
+    }
+
     res.json({
       success: true,
       message: "Rental updated successfully",
       data,
+      file_path: uploadedFilePath,
     });
   } catch (error) {
     console.error("Update rental error:", error);
+
+    // Clean up uploaded file if there was an error
+    if (uploadedFilePath) {
+      try {
+        await deleteImageFromStorage(uploadedFilePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up uploaded file:", cleanupError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -514,6 +764,17 @@ controller.deleteRental = async (req, res) => {
       });
     }
 
+    if (existingRental.banner) {
+      const urlParts = existingRental.banner.split("/");
+      const fileName = urlParts[urlParts.length - 1];
+      const bannerPath = `rentals/banners/${fileName}`;
+
+      const bannerDeleted = await deleteImageFromStorage(bannerPath);
+      if (!bannerDeleted) {
+        console.warn(`Failed to delete banner: ${bannerPath}`);
+      }
+    }
+
     res.json({
       success: true,
       message: "Rental deleted successfully",
@@ -530,4 +791,4 @@ controller.deleteRental = async (req, res) => {
   }
 };
 
-module.exports = controller;
+module.exports = { controller, upload };

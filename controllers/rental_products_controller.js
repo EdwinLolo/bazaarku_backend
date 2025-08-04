@@ -13,6 +13,10 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (req, file, cb) => {
+    console.log("=== MULTER FILE FILTER ===");
+    console.log("File received in filter:", file);
+    console.log("Field name:", file.fieldname);
+
     // Check if file is an image
     if (file.mimetype.startsWith("image/")) {
       cb(null, true);
@@ -82,93 +86,63 @@ const deleteImageFromStorage = async (filePath) => {
 // CREATE - Add new rental product with image upload
 controller.createRentalProduct = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      price,
-      rental_id,
-      location,
-      contact,
-      is_ready = true,
-    } = req.body;
+    const { name, description, price, rental_id, location, contact, is_ready } =
+      req.body;
     const file = req.file;
 
+    console.log("=== CREATE RENTAL PRODUCT DEBUG ===");
+    console.log("Request body:", req.body);
+    console.log("File:", file);
+
     // Validate required fields
-    if (
-      !name ||
-      !description ||
-      !price ||
-      !rental_id ||
-      !location ||
-      !contact
-    ) {
+    if (!name || !rental_id || !price) {
       return res.status(400).json({
         success: false,
-        message:
-          "Name, description, price, rental_id, location, and contact are required",
+        message: "Name, rental_id, and price are required",
       });
     }
 
-    // Validate price is positive
-    if (price <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Price must be greater than 0",
-      });
-    }
+    // Prepare insert data
+    const insertData = {
+      name: name.trim(),
+      description: description ? description.trim() : "",
+      price: parseFloat(price),
+      rental_id: parseInt(rental_id),
+      location: location ? location.trim() : "",
+      contact: contact ? contact.trim() : "",
+      is_ready: is_ready === "true" || is_ready === true,
+    };
 
-    // Check if rental exists
-    const { data: rental, error: rentalError } = await supabase
-      .from("rental")
-      .select("id, name")
-      .eq("id", rental_id)
-      .single();
-
-    if (rentalError || !rental) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid rental_id. Rental not found",
-      });
-    }
-
-    let bannerUrl = null;
+    let productImageUrl = null;
     let uploadedFilePath = null;
 
-    // Handle image upload if file provided
+    // Handle product image file upload if present
     if (file) {
+      console.log("Processing product image upload...");
+
       const uploadResult = await uploadImageToStorage(file);
 
       if (!uploadResult.success) {
+        console.error("Upload error:", uploadResult.error);
         return res.status(500).json({
           success: false,
-          message: "Failed to upload image",
+          message: "Failed to upload product image",
           error: uploadResult.error,
         });
       }
 
-      bannerUrl = uploadResult.publicUrl;
+      productImageUrl = uploadResult.publicUrl;
       uploadedFilePath = uploadResult.filePath;
+      insertData.banner = productImageUrl;
     }
+
+    console.log("Insert data:", insertData);
 
     // Insert new rental product
     const { data, error } = await supabase
-      .from("rental_products")
-      .insert({
-        name: name.trim(),
-        description: description.trim(),
-        price: parseInt(price),
-        rental_id: parseInt(rental_id),
-        location: location.trim(),
-        contact: contact.trim(),
-        banner: bannerUrl, // This will be null if no image uploaded
-        is_ready,
-      })
-      .select(
-        `
-        *,
-        rental:rental_id (id, name)
-      `
-      )
+      .from("rental_products") // assuming your table name
+      .insert(insertData)
+      .select("*")
       .single();
 
     if (error) {
@@ -188,13 +162,20 @@ controller.createRentalProduct = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Rental product created successfully",
-      data: {
-        ...data,
-        file_path: uploadedFilePath,
-      },
+      data,
+      file_path: uploadedFilePath,
     });
   } catch (error) {
     console.error("Create rental product error:", error);
+
+    if (uploadedFilePath) {
+      try {
+        await deleteImageFromStorage(uploadedFilePath);
+      } catch (cleanupError) {
+        console.error("Error cleaning up uploaded file:", cleanupError);
+      }
+    }
+
     res.status(500).json({
       success: false,
       message: "Internal server error",

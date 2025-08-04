@@ -1,9 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controllers/index.js");
+// const controller = require("../controllers/index.js");
+const {
+  controller: rentalCategoryController,
+  upload: uploadRentalCategoryImage,
+} = require("../controllers/rental_controller");
 const {
   controller: rentalProductsController,
-  upload,
+  upload: uploadRentalProductImage,
 } = require("../controllers/rental_products_controller");
 const {
   authenticate,
@@ -15,26 +19,34 @@ const {
 // === RENTAL ROUTES WITH CHILDREN ===
 router.get(
   "/rentals/with-products",
-  controller.rental.getAllRentalsWithProducts
+  rentalCategoryController.getAllRentalsWithProducts
 );
 
 // Get rental summary (statistics only)
-router.get("/rentals/summary", controller.rental.getRentalSummary);
+router.get("/rentals/summary", rentalCategoryController.getRentalSummary);
 
 // Get single rental with all products (paginated products)
 router.get(
   "/rentals/:id/with-products",
-  controller.rental.getRentalWithAllProducts
+  rentalCategoryController.getRentalWithAllProducts
 );
 
 // Rental Routes
-router.get("/rentals", controller.rental.getAllRentals);
-router.get("/rentals/:id", controller.rental.getRentalById);
+router.get("/rentals", rentalCategoryController.getAllRentals);
+router.get("/rentals/:id", rentalCategoryController.getRentalById);
 
 // Protected routes (Admin only)
-router.post("/rentals", controller.rental.createRental);
-router.put("/rentals/:id", controller.rental.updateRental);
-router.delete("/rentals/:id", controller.rental.deleteRental);
+router.post(
+  "/rentals",
+  uploadRentalCategoryImage.single("banner_image"),
+  rentalCategoryController.createRental
+);
+router.put(
+  "/rentals/:id",
+  uploadRentalCategoryImage.single("banner_image"),
+  rentalCategoryController.updateRental
+);
+router.delete("/rentals/:id", rentalCategoryController.deleteRental);
 
 // ---------------------------
 
@@ -48,13 +60,13 @@ router.get(
 // Protected routes (Vendor or Admin)
 router.post(
   "/rental-products",
-  upload.single("product_image"), // 'product_image' is the field name for file upload
+  uploadRentalProductImage.single("product_image"), // 'product_image' is the field name for file uploadRentalProductImage
   rentalProductsController.createRentalProduct
 );
 
 router.put(
   "/rental-products/:id",
-  upload.single("product_image"),
+  uploadRentalProductImage.single("product_image"),
   rentalProductsController.updateRentalProduct
 );
 router.delete(

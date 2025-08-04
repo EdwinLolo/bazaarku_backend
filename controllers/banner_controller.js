@@ -83,6 +83,11 @@ controller.createBanner = async (req, res) => {
     const { name, link } = req.body;
     const file = req.file;
 
+    console.log("=== CREATE RENTAL DEBUG ===");
+    console.log("Request body:", req.body);
+    console.log("File:", file);
+    console.log("Content-Type:", req.headers["content-type"]);
+
     // Validate required fields
     if (!name) {
       return res.status(400).json({
@@ -98,31 +103,48 @@ controller.createBanner = async (req, res) => {
       });
     }
 
-    // Upload image to storage
-    const uploadResult = await uploadImageToStorage(file);
+    const insertData = {
+      name: name.trim(),
+      link: link.trim(),
+    };
 
-    if (!uploadResult.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Failed to upload image",
-        error: uploadResult.error,
+    if (file) {
+      console.log("Processing file upload...");
+      console.log("File details:", {
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
       });
+
+      const uploadResult = await uploadImageToStorage(file, "banners");
+
+      if (!uploadResult.success) {
+        console.error("Upload error:", uploadResult.error);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload banner image",
+          error: uploadResult.error,
+        });
+      }
+
+      bannerUrl = uploadResult.publicUrl;
+      uploadedFilePath = uploadResult.filePath;
+      insertData.banner = bannerUrl;
     }
+
+    console.log("Insert data:", insertData);
 
     // Insert banner record
     const { data, error } = await supabase
       .from("banner_home")
-      .insert({
-        name: name.trim(),
-        banner: uploadResult.publicUrl,
-        link: link?.trim() || null,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
-      // If database insert fails, delete the uploaded image
-      await deleteImageFromStorage(uploadResult.filePath);
+      if (uploadedFilePath) {
+        await deleteImageFromStorage(uploadedFilePath);
+      }
 
       console.error("Create banner error:", error);
       return res.status(500).json({
@@ -137,7 +159,7 @@ controller.createBanner = async (req, res) => {
       message: "Banner created successfully",
       data: {
         ...data,
-        file_path: uploadResult.filePath,
+        file_path: uploadedFilePath,
       },
     });
   } catch (error) {

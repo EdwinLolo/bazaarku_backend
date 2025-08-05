@@ -66,6 +66,7 @@ const testConnection = async () => {
     const { data, error } = await supabase.from("area").select("*").limit(1);
     if (error) {
       console.log("Supabase connection failed:", error.message);
+      console.log("Full error details:", error);
     } else {
       console.log("Connected to Supabase database!");
     }

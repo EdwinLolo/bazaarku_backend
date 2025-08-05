@@ -369,7 +369,8 @@ controller.getVendorById = async (req, res) => {
           start_date,
           end_date,
           location,
-          category
+          category,
+          banner
         )
       `
       )

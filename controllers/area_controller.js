@@ -89,8 +89,8 @@ controller.getAllAreas = async (req, res) => {
     let query = supabase
       .from("area")
       .select("*", { count: "exact" })
-      .order(sortBy, { ascending: sortOrder === "asc" })
-      .range(offset, offset + limit - 1);
+      .order(sortBy, { ascending: sortOrder === "asc" });
+    // .range(offset, offset + limit - 1);
 
     // Add search functionality
     if (search) {

@@ -155,8 +155,8 @@ controller.getAllBooths = async (req, res) => {
       `,
         { count: "exact" }
       )
-      .order(sortBy, { ascending: sortOrder === "asc" })
-      .range(offset, offset + limit - 1);
+      .order(sortBy, { ascending: sortOrder === "asc" });
+    // .range(offset, offset + limit - 1);
 
     // Add filters
     if (search) {
@@ -521,7 +521,7 @@ controller.deleteBooth = async (req, res) => {
       .eq("id", id)
       .single();
 
-    if (fetchError || !existingB()) {
+    if (fetchError || !existingBooth) {
       return res.status(404).json({
         success: false,
         message: "Booth not found",

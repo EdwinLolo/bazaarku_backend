@@ -21,7 +21,7 @@ router.delete("/booths/:id", controller.booth.deleteBooth);
 router.get(
   "/booths",
   authenticate,
-  requireAdmin,
+  requireVendorOrAdmin,
   controller.booth.getAllBooths
 );
 router.get(

@@ -549,8 +549,8 @@ controller.getAllEvents = async (req, res) => {
       `,
         { count: "exact" }
       )
-      .order(sortBy, { ascending: sortOrder === "asc" })
-      .range(offset, offset + limit - 1);
+      .order(sortBy, { ascending: sortOrder === "asc" });
+    // .range(offset, offset + limit - 1);
 
     // Add filters
     if (search) {

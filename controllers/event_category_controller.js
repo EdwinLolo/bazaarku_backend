@@ -75,8 +75,6 @@ controller.getAllEventCategories = async (req, res) => {
       sort_order = "asc",
     } = req.query;
 
-    const offset = (page - 1) * limit;
-
     // Validate sort parameters
     const allowedSortBy = ["id", "name"];
     const allowedSortOrder = ["asc", "desc"];
@@ -89,13 +87,7 @@ controller.getAllEventCategories = async (req, res) => {
     let query = supabase
       .from("event_category")
       .select("*", { count: "exact" })
-      .order(sortBy, { ascending: sortOrder === "asc" })
-      .range(offset, offset + limit - 1);
-
-    // Add search functionality
-    if (search) {
-      query = query.ilike("name", `%${search}%`);
-    }
+      .order(sortBy, { ascending: sortOrder === "asc" });
 
     const { data, error, count } = await query;
 
@@ -111,12 +103,6 @@ controller.getAllEventCategories = async (req, res) => {
     res.json({
       success: true,
       data,
-      pagination: {
-        total: count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(count / limit),
-      },
     });
   } catch (error) {
     console.error("Get event categories error:", error);

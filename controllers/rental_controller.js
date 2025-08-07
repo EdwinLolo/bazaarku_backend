@@ -457,6 +457,54 @@ controller.getAllRentals = async (req, res) => {
     let query = supabase
       .from("rental")
       .select("*", { count: "exact" })
+      .order("id", { ascending: true });
+    // .range(offset, offset + limit - 1);
+
+    // Add search functionality
+    if (search) {
+      query = query.ilike("name", `%${search}%`);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Get rentals error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch rentals",
+        error: error.message,
+      });
+    }
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Get rentals error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// READ - Get all rentals Users
+controller.getAllRentalsUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from("rental")
+      .select("*", { count: "exact" })
       .order("id", { ascending: true })
       .range(offset, offset + limit - 1);
 

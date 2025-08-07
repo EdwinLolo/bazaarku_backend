@@ -10,6 +10,7 @@ const {
 
 // Public routes
 router.get("/vendors", controller.getAllVendors);
+router.get("/vendors/users", controller.getAllVendorsUser);
 router.get("/vendors/statistics", controller.getVendorStatistics);
 router.get("/vendors/:id", controller.getVendorById);
 

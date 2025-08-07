@@ -349,6 +349,78 @@ controller.getAllVendors = async (req, res) => {
   }
 };
 
+// READ - Get all vendors Users
+controller.getAllVendorsUser = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      sort_by = "name",
+      sort_order = "asc",
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    // Validate sort parameters
+    const allowedSortBy = ["id", "name", "phone"];
+    const allowedSortOrder = ["asc", "desc"];
+
+    const sortBy = allowedSortBy.includes(sort_by) ? sort_by : "name";
+    const sortOrder = allowedSortOrder.includes(sort_order)
+      ? sort_order
+      : "asc";
+
+    let query = supabase
+      .from("vendor")
+      .select(
+        `
+        *,
+        user:user_id (id, first_name, last_name, email, role)
+      `,
+        { count: "exact" }
+      )
+      .order(sortBy, { ascending: sortOrder === "asc" })
+      .range(offset, offset + limit - 1);
+
+    // Add search functionality
+    if (search) {
+      query = query.or(
+        `name.ilike.%${search}%,desc.ilike.%${search}%,insta.ilike.%${search}%`
+      );
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Get vendors error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch vendors",
+        error: error.message,
+      });
+    }
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Get vendors error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // READ - Get vendor by ID
 controller.getVendorById = async (req, res) => {
   try {

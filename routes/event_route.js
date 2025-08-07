@@ -10,6 +10,7 @@ const {
 
 // Public routes
 router.get("/events", controller.getAllEvents);
+router.get("/events/user", controller.getAllEventsUser);
 router.get("/events/statistics", controller.getEventStatistics);
 router.get("/events/:id", controller.getEventById);
 

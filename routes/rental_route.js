@@ -33,6 +33,7 @@ router.get(
 
 // Rental Routes
 router.get("/rentals", rentalCategoryController.getAllRentals);
+router.get("/rentals/users", rentalCategoryController.getAllRentalsUsers);
 router.get("/rentals/:id", rentalCategoryController.getRentalById);
 
 // Protected routes (Admin only)

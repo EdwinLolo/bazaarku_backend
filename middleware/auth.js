@@ -71,7 +71,7 @@ function authorize(roles = []) {
 
 // Specific role middlewares
 const requireAdmin = authorize(["admin"]);
-const requireVendor = authorize(["teacher", "admin"]);
+const requireVendor = authorize(["vendor", "admin"]);
 const requireUser = authorize(["user", "vendor", "admin"]);
 const requireVendorOrAdmin = authorize(["vendor", "admin"]);
 

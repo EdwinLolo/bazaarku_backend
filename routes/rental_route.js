@@ -38,15 +38,24 @@ router.get("/rentals/:id", rentalCategoryController.getRentalById);
 // Protected routes (Admin only)
 router.post(
   "/rentals",
+  authenticate,
+  requireAdmin,
   uploadRentalCategoryImage.single("banner_image"),
   rentalCategoryController.createRental
 );
 router.put(
   "/rentals/:id",
+  authenticate,
+  requireAdmin,
   uploadRentalCategoryImage.single("banner_image"),
   rentalCategoryController.updateRental
 );
-router.delete("/rentals/:id", rentalCategoryController.deleteRental);
+router.delete(
+  "/rentals/:id",
+  authenticate,
+  requireAdmin,
+  rentalCategoryController.deleteRental
+);
 
 // ---------------------------
 
@@ -60,17 +69,23 @@ router.get(
 // Protected routes (Vendor or Admin)
 router.post(
   "/rental-products",
+  authenticate,
+  requireAdmin,
   uploadRentalProductImage.single("product_image"), // 'product_image' is the field name for file uploadRentalProductImage
   rentalProductsController.createRentalProduct
 );
 
 router.put(
   "/rental-products/:id",
+  authenticate,
+  requireAdmin,
   uploadRentalProductImage.single("product_image"),
   rentalProductsController.updateRentalProduct
 );
 router.delete(
   "/rental-products/:id",
+  authenticate,
+  requireAdmin,
   rentalProductsController.deleteRentalProduct
 );
 

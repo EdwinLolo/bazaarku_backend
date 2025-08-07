@@ -19,6 +19,8 @@ router.get("/events/vendor/:vendor_id", controller.getEventsByVendorId);
 // Protected routes
 router.post(
   "/events",
+  authenticate,
+  requireVendorOrAdmin,
   upload.fields([
     { name: "banner_image", maxCount: 1 },
     { name: "permit_img", maxCount: 1 },
@@ -28,6 +30,8 @@ router.post(
 
 router.put(
   "/events/:id",
+  authenticate,
+  requireVendorOrAdmin,
   upload.fields([
     { name: "banner_image", maxCount: 1 },
     { name: "permit_img", maxCount: 1 },
@@ -35,6 +39,11 @@ router.put(
   controller.updateEvent
 );
 
-router.delete("/events/:id", controller.deleteEvent);
+router.delete(
+  "/events/:id",
+  authenticate,
+  requireVendorOrAdmin,
+  controller.deleteEvent
+);
 
 module.exports = router;

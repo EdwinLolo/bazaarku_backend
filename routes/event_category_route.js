@@ -23,19 +23,30 @@ router.get(
 );
 
 // Protected routes (Admin only)
-router.post("/event-categories", controller.eventCategory.createEventCategory);
+router.post(
+  "/event-categories",
+  authenticate,
+  requireAdmin,
+  controller.eventCategory.createEventCategory
+);
 router.put(
   "/event-categories/:id",
+  authenticate,
+  requireAdmin,
   controller.eventCategory.updateEventCategory
 );
 router.delete(
   "/event-categories/:id",
+  authenticate,
+  requireAdmin,
   controller.eventCategory.deleteEventCategory
 );
 
 // Bulk operations (Admin only)
 router.post(
   "/event-categories/bulk",
+  authenticate,
+  requireAdmin,
   controller.eventCategory.bulkCreateEventCategories
 );
 

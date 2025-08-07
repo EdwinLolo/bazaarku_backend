@@ -16,11 +16,26 @@ router.get("/areas/:id", controller.area.getAreaById);
 router.get("/areas/:id/with-count", controller.area.getAreaWithCount);
 
 // Protected routes (Admin only)
-router.post("/areas", controller.area.createArea);
-router.put("/areas/:id", controller.area.updateArea);
-router.delete("/areas/:id", controller.area.deleteArea);
+router.post("/areas", authenticate, requireAdmin, controller.area.createArea);
+router.put(
+  "/areas/:id",
+  authenticate,
+  requireAdmin,
+  controller.area.updateArea
+);
+router.delete(
+  "/areas/:id",
+  authenticate,
+  requireAdmin,
+  controller.area.deleteArea
+);
 
 // Bulk operations (Admin only)
-router.post("/areas/bulk", controller.area.bulkCreateAreas);
+router.post(
+  "/areas/bulk",
+  authenticate,
+  requireAdmin,
+  controller.area.bulkCreateAreas
+);
 
 module.exports = router;

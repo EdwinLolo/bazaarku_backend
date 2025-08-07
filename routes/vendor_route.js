@@ -18,16 +18,29 @@ router.get("/vendors/:id", controller.getVendorById);
 router.get("/vendors/user/:user_id", controller.getVendorByUserId);
 
 // Create vendor (admin or the user themselves if they have vendor role)
-router.post("/vendors", upload.single("banner_image"), controller.createVendor);
+router.post(
+  "/vendors",
+  authenticate,
+  requireAdmin,
+  upload.single("banner_image"),
+  controller.createVendor
+);
 
 // Update vendor (vendor can update their own, admin can update any)
 router.put(
   "/vendors/:id",
+  authenticate,
+  requireVendorOrAdmin,
   upload.single("banner_image"),
   controller.updateVendor
 );
 
 // Delete vendor (admin only)
-router.delete("/vendors/:id", controller.deleteVendor);
+router.delete(
+  "/vendors/:id",
+  authenticate,
+  requireAdmin,
+  controller.deleteVendor
+);
 
 module.exports = router;

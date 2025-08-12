@@ -545,6 +545,12 @@ controller.getAllEvents = async (req, res) => {
           phone,
           desc,
           is_acc
+        ),
+        rating!rating_event_id_fkey (
+          id,
+          name,
+          review,
+          rating_star
         )
       `,
         { count: "exact" }
@@ -597,6 +603,24 @@ controller.getAllEvents = async (req, res) => {
     // Process data to add booth statistics and other calculated fields
     const processedData = data.map((event) => {
       const booths = event.booth || [];
+      const ratings = event.rating || [];
+
+      // Calculate rating statistics
+      const rating_count = ratings.length;
+      const average_rating = rating_count
+        ? parseFloat(
+            (
+              ratings.reduce(
+                (acc, r) =>
+                  acc +
+                  (typeof r.rating_star === "number"
+                    ? r.rating_star
+                    : parseInt(r.rating_star) || 0),
+                0
+              ) / rating_count
+            ).toFixed(2)
+          )
+        : 0;
 
       // Calculate booth statistics
       const boothStats = {
@@ -614,6 +638,8 @@ controller.getAllEvents = async (req, res) => {
           applications: booths, // All booth applications
         },
         booth_count: booths.length, // Keep for backward compatibility
+        average_rating,
+        rating_count,
         duration_days:
           Math.ceil(
             (new Date(event.end_date) - new Date(event.start_date)) /
@@ -649,6 +675,144 @@ controller.getAllEvents = async (req, res) => {
     });
   } catch (error) {
     console.error("Get events error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// READ - Get event data for dropdowns
+controller.getEventData = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      event_category_id,
+      area_id,
+      vendor_id,
+      min_price,
+      max_price,
+      start_date,
+      end_date,
+      sort_by = "start_date",
+      sort_order = "asc",
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    // Validate sort parameters
+    const allowedSortBy = [
+      "id",
+      "name",
+      "price",
+      "start_date",
+      "end_date",
+      "created_at",
+    ];
+    const allowedSortOrder = ["asc", "desc"];
+    const sortBy = allowedSortBy.includes(sort_by) ? sort_by : "start_date";
+    const sortOrder = allowedSortOrder.includes(sort_order)
+      ? sort_order
+      : "asc";
+
+    // Get events data only
+    let query = supabase
+      .from("event")
+      .select("*", { count: "exact" })
+      .order(sortBy, { ascending: sortOrder === "asc" })
+      .range(offset, offset + parseInt(limit) - 1);
+
+    // Add filters
+    if (search) {
+      query = query.or(
+        `name.ilike.%${search}%,description.ilike.%${search}%,location.ilike.%${search}%`
+      );
+    }
+
+    if (event_category_id) {
+      query = query.eq("event_category_id", event_category_id);
+    }
+
+    if (area_id) {
+      query = query.eq("area_id", area_id);
+    }
+
+    if (vendor_id) {
+      query = query.eq("vendor_id", vendor_id);
+    }
+
+    if (min_price) {
+      query = query.gte("price", parseInt(min_price));
+    }
+
+    if (max_price) {
+      query = query.lte("price", parseInt(max_price));
+    }
+
+    if (start_date) {
+      query = query.gte("start_date", start_date);
+    }
+
+    if (end_date) {
+      query = query.lte("end_date", end_date);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Get event data error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch event data",
+        error: error.message,
+      });
+    }
+
+    // Add some basic calculated fields if needed
+    const processedData = data.map((event) => ({
+      ...event,
+      duration_days:
+        event.start_date && event.end_date
+          ? Math.ceil(
+              (new Date(event.end_date) - new Date(event.start_date)) /
+                (1000 * 60 * 60 * 24)
+            ) + 1
+          : null,
+      status:
+        event.start_date && event.end_date
+          ? new Date(event.end_date) < new Date()
+            ? "completed"
+            : new Date(event.start_date) <= new Date()
+            ? "ongoing"
+            : "upcoming"
+          : "unknown",
+    }));
+
+    res.json({
+      success: true,
+      data: processedData,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit),
+      },
+      filters: {
+        search,
+        event_category_id,
+        area_id,
+        vendor_id,
+        price_range: { min_price, max_price },
+        date_range: { start_date, end_date },
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      },
+    });
+  } catch (error) {
+    console.error("Get event data error:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -753,6 +917,24 @@ controller.getAllEventsUser = async (req, res) => {
     // Process data to add booth statistics and other calculated fields
     const processedData = data.map((event) => {
       const booths = event.booth || [];
+      const ratings = event.rating || [];
+
+      // Calculate rating statistics
+      const rating_count = ratings.length;
+      const average_rating = rating_count
+        ? parseFloat(
+            (
+              ratings.reduce(
+                (acc, r) =>
+                  acc +
+                  (typeof r.rating_star === "number"
+                    ? r.rating_star
+                    : parseInt(r.rating_star) || 0),
+                0
+              ) / rating_count
+            ).toFixed(2)
+          )
+        : 0;
 
       // Calculate booth statistics
       const boothStats = {
@@ -770,6 +952,8 @@ controller.getAllEventsUser = async (req, res) => {
           applications: booths, // All booth applications
         },
         booth_count: booths.length, // Keep for backward compatibility
+        average_rating,
+        rating_count,
         duration_days:
           Math.ceil(
             (new Date(event.end_date) - new Date(event.start_date)) /

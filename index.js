@@ -49,6 +49,7 @@ const areaRoute = require("./routes/area_route.js");
 const vendorRoute = require("./routes/vendor_route.js");
 const boothRoute = require("./routes/booth_route.js");
 const eventRoute = require("./routes/event_route.js");
+const ratingRoute = require("./routes/rating_route.js");
 
 // Apply routes AFTER CORS
 app.use(authRoute);
@@ -59,6 +60,7 @@ app.use(areaRoute);
 app.use(vendorRoute);
 app.use(boothRoute);
 app.use(eventRoute);
+app.use(ratingRoute);
 
 // Test database connection
 const testConnection = async () => {

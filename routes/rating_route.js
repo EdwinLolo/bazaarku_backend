@@ -11,6 +11,7 @@ const {
 // Public routes (anyone can view ratings)
 router.get("/rating", ratingController.getRatings);
 router.get("/rating/:id", ratingController.getRatingById);
+router.get("/rating/event/:event_id", ratingController.getRatingsByEventId);
 router.get("/rating/:event_id/stats", ratingController.getEventRatingStats);
 
 // Protected routes (authenticated users can create ratings)

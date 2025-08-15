@@ -17,6 +17,8 @@ router.get("/booths/:id", controller.booth.getBoothById);
 router.put("/booths/:id", controller.booth.updateBooth);
 router.delete("/booths/:id", controller.booth.deleteBooth);
 
+router.get("/booths/user/:user_id", controller.booth.getBoothsByUserId);
+
 // Admin routes - Booth management and approval
 router.get(
   "/booths",

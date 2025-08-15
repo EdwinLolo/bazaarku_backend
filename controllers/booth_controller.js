@@ -560,6 +560,53 @@ controller.deleteBooth = async (req, res) => {
   }
 };
 
+// Get booth by user id
+controller.getBoothsByUserId = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    console.log("Fetching booths for user ID:", user_id);
+
+    // Validate user ID
+    if (!user_id) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    // Fetch booths by user ID
+    const { data, error } = await supabase
+      .from("booth")
+      .select(`
+        *,
+        event:event_id (id, name, start_date, end_date, location)
+      `)
+      .eq("user_id", user_id);
+
+    if (error) {
+      console.error("Get booths by user ID error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to retrieve booths",
+        error: error.message,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Booths retrieved successfully",
+      data,
+    });
+  } catch (error) {
+    console.error("Get booths by user ID error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // Get booth statistics
 controller.getBoothStatistics = async (req, res) => {
   try {
@@ -675,16 +722,14 @@ controller.bulkUpdateBoothStatus = async (req, res) => {
 
     // Log admin action
     console.log(
-      `Admin ${req.user?.email} bulk updated ${
-        booth_ids.length
+      `Admin ${req.user?.email} bulk updated ${booth_ids.length
       } booths to ${is_acc.toUpperCase()}`
     );
 
     res.json({
       success: true,
-      message: `${
-        data.length
-      } booth applications ${is_acc.toLowerCase()}ed successfully`,
+      message: `${data.length
+        } booth applications ${is_acc.toLowerCase()}ed successfully`,
       data,
       updated_count: data.length,
       updated_by: req.user?.email,

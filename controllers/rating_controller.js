@@ -156,6 +156,41 @@ controller.getRatings = async (req, res) => {
   }
 };
 
+// READ - get rating by event id
+controller.getRatingsByEventId = async (req, res) => {
+  try {
+    const { event_id } = req.params;
+    console.log("=== GET RATINGS BY EVENT ID DEBUG ===");
+    console.log("Event ID:", event_id);
+
+    const { data, error } = await supabase
+      .from("rating")
+      .select("*")
+      .eq("event_id", event_id);
+
+    if (error) {
+      console.error("Get ratings by event ID error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch ratings",
+        error: error.message,
+      });
+    }
+
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    console.error("Get ratings by event ID error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // READ - Get single rating by ID
 controller.getRatingById = async (req, res) => {
   try {

@@ -481,6 +481,7 @@ controller.getVendorById = async (req, res) => {
 controller.getVendorByUserId = async (req, res) => {
   try {
     const { user_id } = req.params;
+    console.log("Fetching vendor by user ID:", user_id);
 
     const { data, error } = await supabase
       .from("vendor")
@@ -492,7 +493,6 @@ controller.getVendorByUserId = async (req, res) => {
       .eq("user_id", user_id)
       .single();
 
-    console.log("Fetching vendor by user ID:", user_id);
     console.log("Vendor data by user ID:", data);
     console.log("Error fetching vendor by user ID:", error);
 

@@ -521,7 +521,7 @@ controller.getAllEvents = async (req, res) => {
       start_date,
       end_date,
       sort_by = "start_date",
-      sort_order = "asc",
+      sort_order = "desc",
     } = req.query;
 
     const offset = (page - 1) * limit;
@@ -532,7 +532,7 @@ controller.getAllEvents = async (req, res) => {
     const sortBy = allowedSortBy.includes(sort_by) ? sort_by : "start_date";
     const sortOrder = allowedSortOrder.includes(sort_order)
       ? sort_order
-      : "asc";
+      : "desc";
 
     // Get events with related data including booths
     let query = supabase
@@ -559,8 +559,8 @@ controller.getAllEvents = async (req, res) => {
       `,
         { count: "exact" }
       )
-      .order(sortBy, { ascending: sortOrder === "asc" });
-    // .range(offset, offset + limit - 1);
+      .order(sortBy, { ascending: sortOrder === "desc" })
+      .range(offset, offset + limit - 1);
 
     // Add filters
     if (search) {
@@ -613,17 +613,17 @@ controller.getAllEvents = async (req, res) => {
       const rating_count = ratings.length;
       const average_rating = rating_count
         ? parseFloat(
-            (
-              ratings.reduce(
-                (acc, r) =>
-                  acc +
-                  (typeof r.rating_star === "number"
-                    ? r.rating_star
-                    : parseInt(r.rating_star) || 0),
-                0
-              ) / rating_count
-            ).toFixed(2)
-          )
+          (
+            ratings.reduce(
+              (acc, r) =>
+                acc +
+                (typeof r.rating_star === "number"
+                  ? r.rating_star
+                  : parseInt(r.rating_star) || 0),
+              0
+            ) / rating_count
+          ).toFixed(2)
+        )
         : 0;
 
       // Calculate booth statistics
@@ -647,14 +647,14 @@ controller.getAllEvents = async (req, res) => {
         duration_days:
           Math.ceil(
             (new Date(event.end_date) - new Date(event.start_date)) /
-              (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24)
           ) + 1,
         status:
           new Date(event.end_date) < new Date()
             ? "completed"
             : new Date(event.start_date) <= new Date()
-            ? "ongoing"
-            : "upcoming",
+              ? "ongoing"
+              : "upcoming",
       };
     });
 
@@ -781,17 +781,17 @@ controller.getEventData = async (req, res) => {
       duration_days:
         event.start_date && event.end_date
           ? Math.ceil(
-              (new Date(event.end_date) - new Date(event.start_date)) /
-                (1000 * 60 * 60 * 24)
-            ) + 1
+            (new Date(event.end_date) - new Date(event.start_date)) /
+            (1000 * 60 * 60 * 24)
+          ) + 1
           : null,
       status:
         event.start_date && event.end_date
           ? new Date(event.end_date) < new Date()
             ? "completed"
             : new Date(event.start_date) <= new Date()
-            ? "ongoing"
-            : "upcoming"
+              ? "ongoing"
+              : "upcoming"
           : "unknown",
     }));
 
@@ -933,17 +933,17 @@ controller.getAllEventsUser = async (req, res) => {
       const rating_count = ratings.length;
       const average_rating = rating_count
         ? parseFloat(
-            (
-              ratings.reduce(
-                (acc, r) =>
-                  acc +
-                  (typeof r.rating_star === "number"
-                    ? r.rating_star
-                    : parseInt(r.rating_star) || 0),
-                0
-              ) / rating_count
-            ).toFixed(2)
-          )
+          (
+            ratings.reduce(
+              (acc, r) =>
+                acc +
+                (typeof r.rating_star === "number"
+                  ? r.rating_star
+                  : parseInt(r.rating_star) || 0),
+              0
+            ) / rating_count
+          ).toFixed(2)
+        )
         : 0;
 
       // Calculate booth statistics
@@ -967,14 +967,14 @@ controller.getAllEventsUser = async (req, res) => {
         duration_days:
           Math.ceil(
             (new Date(event.end_date) - new Date(event.start_date)) /
-              (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24)
           ) + 1,
         status:
           new Date(event.end_date) < new Date()
             ? "completed"
             : new Date(event.start_date) <= new Date()
-            ? "ongoing"
-            : "upcoming",
+              ? "ongoing"
+              : "upcoming",
       };
     });
 
@@ -1065,14 +1065,14 @@ controller.getEventById = async (req, res) => {
       duration_days:
         Math.ceil(
           (new Date(data.end_date) - new Date(data.start_date)) /
-            (1000 * 60 * 60 * 24)
+          (1000 * 60 * 60 * 24)
         ) + 1,
       status:
         new Date(data.end_date) < new Date()
           ? "completed"
           : new Date(data.start_date) <= new Date()
-          ? "ongoing"
-          : "upcoming",
+            ? "ongoing"
+            : "upcoming",
       days_until_start: Math.ceil(
         (new Date(data.start_date) - new Date()) / (1000 * 60 * 60 * 24)
       ),
@@ -1178,14 +1178,14 @@ controller.getEventsByVendorId = async (req, res) => {
       duration_days:
         Math.ceil(
           (new Date(event.end_date) - new Date(event.start_date)) /
-            (1000 * 60 * 60 * 24)
+          (1000 * 60 * 60 * 24)
         ) + 1,
       status:
         new Date(event.end_date) < new Date()
           ? "completed"
           : new Date(event.start_date) <= new Date()
-          ? "ongoing"
-          : "upcoming",
+            ? "ongoing"
+            : "upcoming",
     }));
 
     res.json({
@@ -1718,8 +1718,8 @@ controller.getEventStatistics = async (req, res) => {
         avg_price:
           data.length > 0
             ? Math.round(
-                data.reduce((sum, e) => sum + e.price, 0) / data.length
-              )
+              data.reduce((sum, e) => sum + e.price, 0) / data.length
+            )
             : 0,
       },
       revenue_projection: upcomingEvents.reduce(

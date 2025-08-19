@@ -521,7 +521,7 @@ controller.getAllEvents = async (req, res) => {
       start_date,
       end_date,
       sort_by = "start_date",
-      sort_order = "asc",
+      sort_order = "desc",
     } = req.query;
 
     const offset = (page - 1) * limit;
@@ -532,7 +532,7 @@ controller.getAllEvents = async (req, res) => {
     const sortBy = allowedSortBy.includes(sort_by) ? sort_by : "start_date";
     const sortOrder = allowedSortOrder.includes(sort_order)
       ? sort_order
-      : "asc";
+      : "desc";
 
     // Get events with related data including booths
     let query = supabase

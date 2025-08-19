@@ -521,7 +521,7 @@ controller.getAllEvents = async (req, res) => {
       start_date,
       end_date,
       sort_by = "start_date",
-      sort_order = "desc",
+      sort_order = "asc",
     } = req.query;
 
     const offset = (page - 1) * limit;

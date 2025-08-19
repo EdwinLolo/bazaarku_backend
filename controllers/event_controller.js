@@ -1279,12 +1279,12 @@ controller.updateEvent = async (req, res) => {
     }
 
     // Check if event can still be updated (not past events)
-    if (new Date(existingEvent.start_date) < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot update past or ongoing events",
-      });
-    }
+    // if (new Date(existingEvent.start_date) < new Date()) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Cannot update past or ongoing events",
+    //   });
+    // }
 
     // Prepare update data
     const updateData = {};

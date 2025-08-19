@@ -625,20 +625,20 @@ controller.updateVendor = async (req, res) => {
           });
         }
 
-        const { data: existingVendorUser, error: vendorUserError } =
-          await supabase
-            .from("vendor")
-            .select("id")
-            .eq("user_id", userIdStr)
-            .neq("id", id)
-            .single();
+        // const { data: existingVendorUser, error: vendorUserError } =
+        //   await supabase
+        //     .from("vendor")
+        //     .select("id")
+        //     .eq("user_id", userIdStr)
+        //     .neq("id", id)
+        //     .single();
 
-        if (existingVendorUser && !vendorUserError) {
-          return res.status(400).json({
-            success: false,
-            message: "User is already assigned to another vendor",
-          });
-        }
+        // if (existingVendorUser && !vendorUserError) {
+        //   return res.status(400).json({
+        //     success: false,
+        //     message: "User is already assigned to another vendor",
+        //   });
+        // }
 
         updateData.user_id = userIdStr;
       }

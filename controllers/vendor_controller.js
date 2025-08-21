@@ -108,11 +108,11 @@ controller.createVendor = async (req, res) => {
     console.log("req.body:", req.body);
     console.log("Content-Type:", req.headers["content-type"]);
 
-    const { name, user_id, desc, phone, insta, location } = req.body;
+    const { name, user_id, desc, phone, insta, location, email } = req.body;
     const file = req.file;
 
     // Validate required fields
-    if (!name || !user_id || !desc || !phone || !insta) {
+    if (!name || !user_id || !desc || !phone || !insta || !email) {
       return res.status(400).json({
         success: false,
         message:
@@ -242,6 +242,7 @@ controller.createVendor = async (req, res) => {
       phone: parseInt(phone),
       insta: formattedInsta,
       location: location ? location.trim() : null,
+      email: email.trim(),
     };
 
     // Add banner if provided
@@ -560,6 +561,7 @@ controller.updateVendor = async (req, res) => {
       banner,
       remove_banner,
       user_id,
+      email,
     } = req.body;
 
     const file = req.file;
@@ -598,6 +600,11 @@ controller.updateVendor = async (req, res) => {
     if (location !== undefined) {
       const locationStr = location ? location.toString().trim() : null;
       updateData.location = locationStr || null;
+    }
+
+    if (email !== undefined) {
+      const emailStr = email.toString().trim();
+      updateData.email = emailStr || null;
     }
 
     // Phone validation

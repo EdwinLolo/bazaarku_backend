@@ -1034,7 +1034,8 @@ controller.getEventById = async (req, res) => {
                     name,
                     phone,
                     desc,
-                    is_acc
+                    is_acc,
+                    user_id
                 )
                 `
       )

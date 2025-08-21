@@ -6,7 +6,7 @@ const controller = {};
 // CREATE - Add new rating
 controller.createRating = async (req, res) => {
   try {
-    const { name, review, event_id, rating_star } = req.body;
+    const { name, review, event_id, rating_star, user_id } = req.body;
 
     console.log("=== CREATE RATING DEBUG ===");
     console.log("Request body:", req.body);
@@ -47,6 +47,7 @@ controller.createRating = async (req, res) => {
       review: review ? review.trim() : null,
       event_id: parseInt(event_id),
       rating_star: parseInt(rating_star),
+      user_id: user_id || req.user?.id,
     };
 
     console.log("Insert data:", insertData);

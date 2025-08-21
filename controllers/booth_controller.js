@@ -15,7 +15,7 @@ const validatePhone = (phone) => {
 // CREATE - Add new booth application
 controller.createBooth = async (req, res) => {
   try {
-    const { name, phone, event_id, desc } = req.body;
+    const { name, phone, event_id, desc, user_id } = req.body;
 
     // Validate required fields
     if (!name || !phone || !event_id || !desc) {
@@ -86,6 +86,7 @@ controller.createBooth = async (req, res) => {
         name: name.trim(),
         phone: parseInt(phone),
         event_id: parseInt(event_id),
+        user_id: user_id || req.user?.id, // Use user_id from request or authenticated user
         desc: desc.trim(),
         is_acc: "PENDING", // Default status
       })

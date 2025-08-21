@@ -136,17 +136,29 @@ controller.createVendor = async (req, res) => {
       });
     }
 
-    const { data: existingUser, error: userExistingError } = await supabase
-      .from("user")
-      .select("id, role, first_name, last_name")
-      .eq("id", user_id)
-      .single();
+    // Ensure the user doesn't already have a vendor profile
+    const { count: existingVendorCount, error: existingVendorCheckError } =
+      await supabase
+        .from("vendor")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user_id);
 
-    // user existence check
-    if (!userExistingError || existingUser) {
-      return res.status(400).json({
+    if (existingVendorCheckError) {
+      console.error(
+        "Error checking existing vendor for user:",
+        existingVendorCheckError
+      );
+      return res.status(500).json({
         success: false,
-        message: "User already exists",
+        message: "Failed to validate existing vendor",
+        error: existingVendorCheckError.message,
+      });
+    }
+
+    if ((existingVendorCount ?? 0) > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Vendor for this user already exists",
       });
     }
 
@@ -639,16 +651,27 @@ controller.updateVendor = async (req, res) => {
           });
         }
 
-        const { data: existingVendorUser, error: vendorUserError } =
+        const { count: vendorUserCount, error: vendorUserError } =
           await supabase
             .from("vendor")
-            .select("id")
+            .select("id", { count: "exact", head: true })
             .eq("user_id", userIdStr)
-            .neq("id", id)
-            .single();
+            .neq("id", id);
 
-        if (!existingVendorUser && vendorUserError) {
-          return res.status(400).json({
+        if (vendorUserError) {
+          console.error(
+            "Error checking vendor-user uniqueness:",
+            vendorUserError
+          );
+          return res.status(500).json({
+            success: false,
+            message: "Failed to validate vendor-user uniqueness",
+            error: vendorUserError.message,
+          });
+        }
+
+        if ((vendorUserCount ?? 0) > 0) {
+          return res.status(409).json({
             success: false,
             message: "User is already assigned to another vendor",
           });

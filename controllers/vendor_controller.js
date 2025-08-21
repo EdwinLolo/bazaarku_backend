@@ -136,6 +136,20 @@ controller.createVendor = async (req, res) => {
       });
     }
 
+    const { data: existingUser, error: userExistingError } = await supabase
+      .from("user")
+      .select("id, role, first_name, last_name")
+      .eq("id", user_id)
+      .single();
+
+    // user existence check
+    if (!userExistingError || existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists",
+      });
+    }
+
     if (file) {
       console.log("File received:", file.originalname);
       console.log("File size:", file.size);
@@ -625,20 +639,20 @@ controller.updateVendor = async (req, res) => {
           });
         }
 
-        // const { data: existingVendorUser, error: vendorUserError } =
-        //   await supabase
-        //     .from("vendor")
-        //     .select("id")
-        //     .eq("user_id", userIdStr)
-        //     .neq("id", id)
-        //     .single();
+        const { data: existingVendorUser, error: vendorUserError } =
+          await supabase
+            .from("vendor")
+            .select("id")
+            .eq("user_id", userIdStr)
+            .neq("id", id)
+            .single();
 
-        // if (existingVendorUser && !vendorUserError) {
-        //   return res.status(400).json({
-        //     success: false,
-        //     message: "User is already assigned to another vendor",
-        //   });
-        // }
+        if (!existingVendorUser && vendorUserError) {
+          return res.status(400).json({
+            success: false,
+            message: "User is already assigned to another vendor",
+          });
+        }
 
         updateData.user_id = userIdStr;
       }
